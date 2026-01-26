@@ -66,10 +66,10 @@ cat > /var/www/html/index.html <<'EOF'
 </html>
 EOF
 
-# Create Nginx config
+# Create Nginx config (HTTP only - for ACME challenge)
 ok "Creating Nginx configuration..."
 cat > /etc/nginx/sites-available/default <<EOF
-# HTTP redirect
+# HTTP - for ACME challenge
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
@@ -85,20 +85,6 @@ server {
             return 301 https://\$host\$request_uri;
         }
         return 404;
-    }
-}
-
-# HTTPS placeholder (will be updated by certbot)
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name $MAIN_DOMAIN www.$MAIN_DOMAIN;
-    root /var/www/html;
-
-    index index.html index.htm;
-
-    location / {
-        try_files \$uri \$uri/ =404;
     }
 }
 EOF
