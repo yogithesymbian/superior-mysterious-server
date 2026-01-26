@@ -161,7 +161,7 @@ if [ "$SERVICE" = "frontend" ]; then
   if [ "$DRY_RUN" = false ]; then
     cat > $NGINX_AVAILABLE/$SUBDOMAIN <<EOF
 server {
-    server_name $FULL_DOMAIN www.$FULL_DOMAIN;
+    server_name $FULL_DOMAIN;
     root $WEB_DIR/$SUBDOMAIN/public_html;
 
     # Security Headers
@@ -194,7 +194,7 @@ elif [ "$SERVICE" = "proxy" ]; then
   if [ "$DRY_RUN" = false ]; then
     cat > $NGINX_AVAILABLE/$SUBDOMAIN <<EOF
 server {
-    server_name $FULL_DOMAIN www.$FULL_DOMAIN;
+    server_name $FULL_DOMAIN;
     root $WEB_DIR/$SUBDOMAIN/public_html;
 
     # API Headers - CORS enabled
@@ -334,7 +334,7 @@ if [[ "$SETUP_SSL" == "y" || "$SETUP_SSL" == "Y" ]]; then
     if [[ "$SETUP_SSL" == "y" || "$SETUP_SSL" == "Y" ]]; then
       ok "Setting up SSL..."
       if command -v certbot &> /dev/null; then
-        certbot --nginx -d $FULL_DOMAIN -d www.$FULL_DOMAIN --non-interactive --agree-tos --email admin@$MAIN_DOMAIN
+        certbot --nginx -d $FULL_DOMAIN --non-interactive --agree-tos --email admin@$MAIN_DOMAIN
         
         if [ $? -eq 0 ]; then
           ok "SSL setup completed!"
@@ -343,12 +343,13 @@ if [[ "$SETUP_SSL" == "y" || "$SETUP_SSL" == "Y" ]]; then
         else
           warn "SSL setup had issues"
           info "This is usually because:"
-          info "  • DNS records for $FULL_DOMAIN don't exist yet"
+          info "  • DNS A record for $FULL_DOMAIN doesn't exist yet"
           info "  • DNS records haven't propagated (wait 5-30 minutes)"
           info "  • Main domain $MAIN_DOMAIN doesn't have SSL yet"
+          info "  • Firewall blocking HTTP challenge (port 80)"
           echo ""
           info "Setup will continue without SSL. You can run certbot later:"
-          printf "  \033[1msudo certbot --nginx -d %s -d www.%s\033[0m\n" "$FULL_DOMAIN" "$FULL_DOMAIN"
+          printf "  \033[1msudo certbot --nginx -d %s\033[0m\n" "$FULL_DOMAIN"
         fi
       fi
     fi
