@@ -11,7 +11,7 @@ die() { printf '\e[1;31m✗ %s\e[m\n' "$1"; exit 1; }
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Main Domain Setup"
+echo "  Main Domain Setup (Fresh Install)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
@@ -27,9 +27,29 @@ echo "  Summary"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Domain:      $MAIN_DOMAIN"
 echo "Email:       $CERT_EMAIL"
+echo "⚠️  This will remove ALL existing nginx sites & SSL certs"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 read -p "Proceed? (y/n): " CONFIRM
 [ "$CONFIRM" != "y" ] && die "Setup cancelled"
+
+# Fresh install - remove everything
+ok "Stopping Nginx..."
+systemctl stop nginx
+
+ok "Removing all existing sites..."
+rm -rf /etc/nginx/sites-available/*
+rm -rf /etc/nginx/sites-enabled/*
+
+ok "Removing all certbot certificates..."
+certbot delete --non-interactive 2>/dev/null || true
+
+ok "Cleaning certbot..."
+rm -rf /etc/letsencrypt
+rm -rf /var/lib/letsencrypt
+rm -rf /var/log/letsencrypt
+
+ok "Starting Nginx..."
+systemctl start nginx
 
 # Create directories
 ok "Creating directories..."
@@ -149,8 +169,10 @@ server {
 }
 EOF
 
-ok "Testing and reloading Nginx..."
-nginx -t &>/dev/null || die "Final Nginx config test failed"
+ok "Testing Nginx configuration..."
+nginx -t || die "Final Nginx config test failed"
+
+ok "Reloading Nginx..."
 systemctl reload nginx
 
 ok "Testing renewal..."
@@ -162,5 +184,10 @@ echo "  ✓ Main Domain Setup Complete!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 printf "🌐 Access: https://$MAIN_DOMAIN\n"
+echo ""
+
+ok "Testing SSL..."
+curl -I https://$MAIN_DOMAIN
+
 echo ""
 ok "Done! Now run: sudo ./setup_subdomain.sh"
