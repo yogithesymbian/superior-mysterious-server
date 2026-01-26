@@ -319,13 +319,11 @@ if [[ "$SETUP_SSL" == "y" || "$SETUP_SSL" == "Y" ]]; then
       
       if [[ "$INSTALL_CERTBOT" == "y" || "$INSTALL_CERTBOT" == "Y" ]]; then
         ok "Installing certbot and python3-certbot-nginx..."
-        if [ "$DRY_RUN" = false ]; then
-          sudo apt install -y certbot python3-certbot-nginx
-          if [ $? -ne 0 ]; then
-            die "Certbot installation failed!"
-          fi
-          ok "Certbot installed successfully!"
+        sudo apt install -y certbot python3-certbot-nginx
+        if [ $? -ne 0 ]; then
+          die "Certbot installation failed!"
         fi
+        ok "Certbot installed successfully!"
       else
         warn "Skipping SSL setup - certbot not installed"
         SETUP_SSL="n"
@@ -343,7 +341,14 @@ if [[ "$SETUP_SSL" == "y" || "$SETUP_SSL" == "Y" ]]; then
           ok "Testing renewal..."
           certbot renew --dry-run
         else
-          warn "SSL setup had issues, check certbot logs"
+          warn "SSL setup had issues"
+          info "This is usually because:"
+          info "  • DNS records for $FULL_DOMAIN don't exist yet"
+          info "  • DNS records haven't propagated (wait 5-30 minutes)"
+          info "  • Main domain $MAIN_DOMAIN doesn't have SSL yet"
+          echo ""
+          info "Setup will continue without SSL. You can run certbot later:"
+          printf "  \033[1msudo certbot --nginx -d %s -d www.%s\033[0m\n" "$FULL_DOMAIN" "$FULL_DOMAIN"
         fi
       fi
     fi
@@ -367,7 +372,7 @@ echo "📁 Root Directory: $WEB_DIR/$SUBDOMAIN"
 echo ""
 
 # Make URL clickable with OSC 8 protocol (works in modern terminals)
-printf "🌐 Access:       \033]8;;https://$FULL_DOMAIN\033\\https://$FULL_DOMAIN\033]8;;\033\\\n"
+printf '\e]8;;https://%s\e\\%s\e]8;;\e\\\n' "$FULL_DOMAIN" "🌐 Access:       https://$FULL_DOMAIN"
 
 echo ""
 echo "Next Steps:"
