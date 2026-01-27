@@ -162,6 +162,13 @@ if ! command -v certbot &> /dev/null; then
     apt install -y certbot python3-certbot-nginx
 fi
 
+# Generate DH params if missing (needed for both main and subdomains)
+if [ ! -f /etc/letsencrypt/ssl-dhparams.pem ]; then
+    ok "Generating DH parameters (this may take a moment)..."
+    mkdir -p /etc/letsencrypt
+    openssl dhparam -out /etc/letsencrypt/ssl-dhparams.pem 2048
+fi
+
 certbot certonly --webroot -w /var/www -d $FULL_DOMAIN -d www.$FULL_DOMAIN \
     --non-interactive --agree-tos --email "$CERT_EMAIL"
 
@@ -183,7 +190,9 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/$FULL_DOMAIN/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$FULL_DOMAIN/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     access_log /var/www/$SUBDOMAIN/logs/access.log;
@@ -235,7 +244,9 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/$FULL_DOMAIN/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$FULL_DOMAIN/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     access_log /var/www/$SUBDOMAIN/logs/access.log;
