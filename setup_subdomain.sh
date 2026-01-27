@@ -201,6 +201,11 @@ server {
     index index.html index.htm;
     charset utf-8;
 
+    # Redirect www to non-www
+    if (\$server_name ~ ^www\\.) {
+        return 301 https://\${server_name#www.}\$request_uri;
+    }
+
     location /.well-known/acme-challenge/ {
         root /var/www;
     }
@@ -254,6 +259,11 @@ server {
 
     add_header Access-Control-Allow-Origin *;
     add_header X-Frame-Options "SAMEORIGIN";
+
+    # Redirect www to non-www
+    if (\$server_name ~ ^www\\.) {
+        return 301 https://\${server_name#www.}\$request_uri;
+    }
 
     location /.well-known/acme-challenge/ {
         root /var/www;
