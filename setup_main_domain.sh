@@ -181,11 +181,29 @@ server {
     }
 }
 
-# HTTPS
+# HTTPS - www redirect
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name $MAIN_DOMAIN www.$MAIN_DOMAIN;
+    server_name www.$MAIN_DOMAIN;
+
+    ssl_certificate /etc/letsencrypt/live/$MAIN_DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$MAIN_DOMAIN/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location / {
+        return 301 https://$MAIN_DOMAIN\$request_uri;
+    }
+}
+
+# HTTPS - main domain
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name $MAIN_DOMAIN;
     root /var/www/html;
 
     ssl_certificate /etc/letsencrypt/live/$MAIN_DOMAIN/fullchain.pem;
@@ -193,6 +211,7 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers on;
     ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
     index index.html index.htm;
 
