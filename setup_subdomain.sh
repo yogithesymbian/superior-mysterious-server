@@ -181,8 +181,27 @@ else
     # Create final config with SSL
     if [ "$SERVICE" = "frontend" ]; then
         cat > /etc/nginx/sites-available/$SUBDOMAIN <<EOF
+# HTTPS - www redirect
 server {
-    server_name $FULL_DOMAIN www.$FULL_DOMAIN;
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name www.$FULL_DOMAIN;
+
+    ssl_certificate /etc/letsencrypt/live/$FULL_DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$FULL_DOMAIN/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location / {
+        return 301 https://$FULL_DOMAIN\$request_uri;
+    }
+}
+
+# HTTPS - main subdomain
+server {
+    server_name $FULL_DOMAIN;
     root /var/www/$SUBDOMAIN/public_html;
 
     listen 443 ssl http2;
@@ -200,11 +219,6 @@ server {
 
     index index.html index.htm;
     charset utf-8;
-
-    # Redirect www to non-www
-    if (\$server_name ~ ^www\\.) {
-        return 301 https://\${server_name#www.}\$request_uri;
-    }
 
     location /.well-known/acme-challenge/ {
         root /var/www;
@@ -240,8 +254,27 @@ EOF
 
     elif [ "$SERVICE" = "proxy" ]; then
         cat > /etc/nginx/sites-available/$SUBDOMAIN <<EOF
+# HTTPS - www redirect
 server {
-    server_name $FULL_DOMAIN www.$FULL_DOMAIN;
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name www.$FULL_DOMAIN;
+
+    ssl_certificate /etc/letsencrypt/live/$FULL_DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$FULL_DOMAIN/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location / {
+        return 301 https://$FULL_DOMAIN\$request_uri;
+    }
+}
+
+# HTTPS - main subdomain
+server {
+    server_name $FULL_DOMAIN;
     root /var/www/$SUBDOMAIN/public_html;
 
     listen 443 ssl http2;
@@ -259,11 +292,6 @@ server {
 
     add_header Access-Control-Allow-Origin *;
     add_header X-Frame-Options "SAMEORIGIN";
-
-    # Redirect www to non-www
-    if (\$server_name ~ ^www\\.) {
-        return 301 https://\${server_name#www.}\$request_uri;
-    }
 
     location /.well-known/acme-challenge/ {
         root /var/www;
