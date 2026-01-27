@@ -89,14 +89,43 @@ server {
 }
 EOF
 
+# Enable site
+ok "Enabling site..."
+ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
+
 # Test and reload nginx
 ok "Testing Nginx configuration..."
-if ! nginx -t &>/dev/null; then
-    die "Nginx config test failed"
+if ! nginx -t 2>&1; then
+    die "Nginx config test failed - check /var/log/nginx/error.log"
 fi
 
 ok "Reloading Nginx..."
 systemctl reload nginx
+sleep 2
+
+# Check if nginx is actually running
+ok "Verifying Nginx service..."
+if ! systemctl is-active --quiet nginx; then
+    die "Nginx service is not running"
+fi
+ok "Nginx service is running ✓"
+
+# Test DNS resolution
+ok "Testing DNS resolution..."
+DNS_IP=$(dig +short $MAIN_DOMAIN @8.8.8.8 | tail -1)
+if [ -z "$DNS_IP" ]; then
+    die "DNS resolution failed for $MAIN_DOMAIN"
+fi
+ok "DNS resolves to: $DNS_IP"
+
+# Get current server IP
+SERVER_IP=$(hostname -I | awk '{print $1}')
+ok "Server IP: $SERVER_IP"
+
+if [ "$DNS_IP" != "$SERVER_IP" ]; then
+    warn "DNS IP ($DNS_IP) doesn't match server IP ($SERVER_IP)"
+    info "Update your DNS A record to point to: $SERVER_IP"
+fi
 
 # Install certbot if needed
 if ! command -v certbot &> /dev/null; then
@@ -111,6 +140,23 @@ certbot certonly --webroot -w /var/www -d $MAIN_DOMAIN -d www.$MAIN_DOMAIN \
 
 if [ $? -ne 0 ]; then
     die "Certbot setup failed. Check DNS records."
+fi
+
+# Generate SSL options if missing
+if [ ! -f /etc/letsencrypt/options-ssl-nginx.conf ]; then
+    ok "Generating SSL configuration..."
+    mkdir -p /etc/letsencrypt
+    cat > /etc/letsencrypt/options-ssl-nginx.conf <<'SSLEOF'
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_prefer_server_ciphers on;
+ssl_ciphers HIGH:!aNULL:!MD5;
+SSLEOF
+fi
+
+# Generate DH params if missing
+if [ ! -f /etc/letsencrypt/ssl-dhparams.pem ]; then
+    ok "Generating DH parameters (this may take a moment)..."
+    openssl dhparam -out /etc/letsencrypt/ssl-dhparams.pem 2048
 fi
 
 # Update Nginx config with SSL certificates
@@ -144,8 +190,9 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/$MAIN_DOMAIN/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$MAIN_DOMAIN/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
 
     index index.html index.htm;
 
