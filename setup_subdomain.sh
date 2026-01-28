@@ -252,6 +252,97 @@ server {
 }
 EOF
 
+    else
+        # For proxy service, update the main domain config if it exists
+        # Otherwise keep existing proxy setup
+        warn "Proxy service selected - ensure backend is running on port $PORT"
+    fi
+
+    # Create SPA-friendly config (works for frontend and proxy)
+    if [ "$SERVICE" = "frontend" ] || [ "$SERVICE" = "spa" ]; then
+        cat > /etc/nginx/sites-available/$SUBDOMAIN <<EOF
+# HTTPS - www redirect
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name www.$FULL_DOMAIN;
+
+    ssl_certificate /etc/letsencrypt/live/$FULL_DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$FULL_DOMAIN/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location / {
+        return 301 https://$FULL_DOMAIN\$request_uri;
+    }
+}
+
+# HTTPS - main subdomain
+server {
+    server_name $FULL_DOMAIN;
+    root /var/www/$SUBDOMAIN/public_html;
+
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+
+    ssl_certificate /etc/letsencrypt/live/$FULL_DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$FULL_DOMAIN/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    access_log /var/www/$SUBDOMAIN/logs/access.log;
+    error_log /var/www/$SUBDOMAIN/logs/error.log;
+
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Content-Type-Options "nosniff";
+
+    index index.html index.htm;
+    charset utf-8;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www;
+    }
+
+    # Serve static assets directly (cache aggressively)
+    location ~* \.(jpg|jpeg|gif|png|css|js|ico|woff|woff2|ttf|svg)$ {
+        try_files \$uri =404;
+        expires 1y;
+        add_header Cache-Control "public, must-revalidate, proxy-revalidate";
+    }
+
+    # SPA routing - fallback to index.html for client-side routing
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt { access_log off; log_not_found off; }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+
+# HTTP redirect
+server {
+    listen 80;
+    listen [::]:80;
+    server_name $FULL_DOMAIN www.$FULL_DOMAIN;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www;
+    }
+
+    location / {
+        return 301 https://\$server_name\$request_uri;
+    }
+}
+EOF
     elif [ "$SERVICE" = "proxy" ]; then
         cat > /etc/nginx/sites-available/$SUBDOMAIN <<EOF
 # HTTPS - www redirect
