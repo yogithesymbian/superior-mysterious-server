@@ -13,3 +13,14 @@ stack :
 - [ ] 🐳 Node.js?
 
 Template 🚀🧠
+
+
+GCLOUD
+
+```
+gcloud compute ssh e2-yo-mvp --zone=asia-southeast1-a
+```
+
+```
+gcloud compute ssh e2m-yo-mvp --zone=us-central1-a
+```
